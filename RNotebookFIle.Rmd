@@ -1,0 +1,20 @@
+---
+title: "CS5200 Practicum II: Harmandeep Sidhu & Robert Zipp"
+output: html_notebook
+---
+
+# Introduction
+
+This practicum assignment creates a relational database using MySQL for the publicly available IMDB dataset. 
+
+# ERD Diagram
+The following is an ERD diagram of the IMDB database after normalization. 
+
+![Figure 1: ERD diagram for relational database](ERD.png)
+
+We can guarantee this model represents the data in at least BCNF because it fulfills the requirements for all normal forms up to and including BCNF.
+
+First Normal Form: Each column contains atomic values.  
+Second Normal Form: The table is in first normal form and all the columns depend on the table's primary key.  
+Third Normal Form: The table is in second normal form and all of its columns are not transitively dependent on the primary key.  
+BCNF: The table is in third normal form and for any dependency A -> B, A is a super key.  
