@@ -7,12 +7,20 @@ output: html_notebook
 
 This practicum assignment creates a relational database using MySQL for the publicly available IMDB dataset. 
 
-# ERD Diagram
-The following is an ERD diagram of the IMDB database after normalization. 
+## ERD Diagrams
 
-![Figure 1: ERD diagram for relational database](ERD.png)
+### Initial diagram
+The following is an ERD diagram of the IMDB database after reading data description and normalization. 
+
+![Figure 1: ERD diagram 1 for relational database](ERD.png)
+### Futher normalized diagram
+The following is an ERD diagram of the IMDB database includes added attributes, junction and look-up tables. 
+
+![Figure 2: ERD diagram 2 for relational database](Updated ERD.jpeg)
+
 
 We can guarantee this model represents the data in at least BCNF because it fulfills the requirements for all normal forms up to and including BCNF.
+Exception: As mentioned in the Rubric - ```title.akas``` & ```title.principals``` are attempted to normalize but might be an exception due to the complexity.
 
 First Normal Form: Each column contains atomic values.  
 Second Normal Form: The table is in first normal form and all the columns depend on the table's primary key.  
