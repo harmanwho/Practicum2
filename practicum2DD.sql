@@ -110,5 +110,4 @@ CREATE TABLE nameProfession (
     CONSTRAINT professionTitles_fk FOREIGN KEY (nconst) REFERENCES nameBasics (nconst)
 );
 
-
 show tables;

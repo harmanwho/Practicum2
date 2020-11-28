@@ -1,56 +1,12 @@
----
-title: "CS5200 Practicum II: Harmandeep Sidhu & Robert Zipp"
-output: html_notebook
----
+--
+-- Database: `MediaIMDBPRac`
+-- Create Tables acccording to the .tsv files
+-- Load all the Tables with .tsv Data
 
-# Introduction
+-- --------------------------------------------------------
 
-This practicum assignment creates a relational database using MySQL for the publicly available IMDB dataset. 
+-- Main table - titleBasics --
 
-## ERD Diagrams
-
-### Initial diagram
-The following is an ERD diagram of the IMDB database after reading data description and normalization. 
-
-![Figure 1: ERD diagram 1 for relational database](ERD.png)
-### Ieration 1: Normalized diagram
-The following is an ERD diagram of the IMDB database includes added attributes, junction and look-up tables. 
-
-![Figure 2: ERD diagram 2 for relational database](Updated ERD.jpeg)
-
-### Ieration 2: Normalized diagram
-The following is an ERD diagram of the IMDB database includes added attributes, junction and look-up tables. 
-
-![Figure 3: ERD diagram 3 for relational database](Final ERD.png)
-
-We can guarantee this model represents the data in at least BCNF because it fulfills the requirements for all normal forms up to and including BCNF.
-Exception: As mentioned in the Rubric - ```title.akas``` & ```title.principals``` are attempted to normalize but might be an exception due to the complexity.
-
-First Normal Form: Each column contains atomic values.  
-Second Normal Form: The table is in first normal form and all the columns depend on the table's primary key.  
-Third Normal Form: The table is in second normal form and all of its columns are not transitively dependent on the primary key.  
-BCNF: The table is in third normal form and for any dependency A -> B, A is a super key.
-
-### R Setup
-
-```{r dbconn}
-
-library(DBI)
-library(RMariaDB)
-
-db <- DBI::dbConnect(
-  drv = RMariaDB::MariaDB(),
-  dbname = "yourDB",
-  host = "localhost",
-  username = "root",
-  password = "yourPassword"
-)
-
-knitr::opts_chunk$set(connection = "db")
-
-```
-
-```{sql, connection="db"}
 --
 -- Table - titleBasics | File - title.basics.tsv
 --
@@ -64,10 +20,8 @@ CREATE TABLE titleBasics (
     endYear YEAR,
     runtimeMinutes INT
 );
+SELECT * FROM titleBasics;
 
-```
-
-```{sql, connection="db"}
 --
 -- Table - titleGenre
 --
@@ -76,9 +30,8 @@ CREATE TABLE titleGenre (
     genre VARCHAR(256)
 );
 
-```
+SELECT * FROM titleGenre;
 
-```{sql, connection="db"}
 --
 -- Table - juncTitleGenre 
 --
@@ -89,9 +42,8 @@ CREATE TABLE juncTitleGenre (
     CONSTRAINT genreFK FOREIGN KEY (genreID) REFERENCES titleGenre (genreID)
 );
 
-```
+SELECT * FROM juncTitleGenre;
 
-```{sql, connection="db"}
 --
 -- Table - titleRatings  | File - title.ratings.tsv
 --
@@ -102,9 +54,8 @@ CREATE TABLE titleRatings (
     CONSTRAINT titleRatingFK FOREIGN KEY (tconst) REFERENCES titleBasics (tconst)
 );
 
-```
+SELECT * FROM titleRatings;
 
-```{sql, connection="db"}
 --
 -- Table - titleEpisodes  | File - title.episodes.tsv
 --
@@ -116,9 +67,8 @@ CREATE TABLE titleEpisodes (
     CONSTRAINT titleEpisodeFK FOREIGN KEY (parentTconst) REFERENCES titleBasics (tconst)
 );
 
-```
+SELECT * FROM titleEpisodes;
 
-```{sql, connection="db"}
 --
 -- Table - crewRoles  | File - title.crew.tsv
 --
@@ -126,9 +76,9 @@ CREATE TABLE crewRoles (
 	roleID INT PRIMARY KEY AUTO_INCREMENT,
     role VARCHAR(256)
 );
-```
 
-```{sql, connection="db"}
+SELECT * FROM crewRoles;
+
 --
 -- Table - juncCrewRole 
 --
@@ -139,9 +89,10 @@ CREATE TABLE juncCrewRole (
     CONSTRAINT titleCrewFK FOREIGN KEY (tconst) REFERENCES titleBasics (tconst),
     CONSTRAINT roleCrewFK FOREIGN KEY (roleID) REFERENCES crewRoles (roleID)
 );
-```
 
-```{sql, connection="db"}
+SELECT * FROM juncCrewRole;
+
+
 -- Main table - nameBasics --
 
 --
@@ -155,9 +106,9 @@ CREATE TABLE nameBasics (
     age INT,
     numTitlesCount INT
 );
-```
 
-```{sql, connection="db"}
+SELECT * FROM nameBasics;
+
 --
 -- Table - juncNameTitles
 --
@@ -167,20 +118,15 @@ CREATE TABLE juncNameTitles (
     CONSTRAINT nameFK FOREIGN KEY (nconst) REFERENCES nameBasics (nconst),
     CONSTRAINT titleFK FOREIGN KEY (tconst) REFERENCES titleBasics (tconst)
 );
-```
 
-```{sql, connection="db"}
---
--- Table - nameProfession
---
+SELECT * FROM juncNameTitles;
+
 CREATE TABLE nameProfession (
 	professionID INT PRIMARY KEY AUTO_INCREMENT,
     primaryProfession VARCHAR(256)
 );
+SELECT * FROM nameProfession;
 
-```
-
-```{sql, connection="db"}
 --
 -- Table - juncNameProfession
 --
@@ -190,9 +136,9 @@ CREATE TABLE juncNameProfession (
     CONSTRAINT nameProfessionFK FOREIGN KEY (nconst) REFERENCES nameBasics (nconst),
     CONSTRAINT professionFK FOREIGN KEY (professionID) REFERENCES nameProfession (professionID)
 );
-```
 
-```{sql, connection="db"}
+SELECT * FROM juncNameProfession;
+
 --
 -- Table - titlePrincipals | File - title.principals.tsv
 --
@@ -206,12 +152,27 @@ CREATE TABLE titlePrincipals (
     CONSTRAINT principalTitleFK FOREIGN KEY (tconst) REFERENCES titleBasics (tconst),
     CONSTRAINT principalNameFK FOREIGN KEY (nconst) REFERENCES nameBasics (nconst)
 );
-```
 
-```{sql, connection="db"}
-show tables;
-```
+SELECT * FROM titlePrincipals;
 
 
-## CREATE TABLE Commands
 
+
+-- NOT CREATED YET
+
+--
+-- Table - titleAkas  | File - title.akas.tsv
+--
+CREATE TABLE titleAkas (
+	titleId VARCHAR(256),
+    ordering INT,
+    title VARCHAR(256),
+    region VARCHAR(256),
+    language VARCHAR(256),
+    types VARCHAR(256),
+    attributes VARCHAR(256),
+    isOriginalTitle BOOLEAN,
+    CONSTRAINT titleAkasFK FOREIGN KEY (titleId) REFERENCES titleBasics (tconst)
+);
+
+SELECT * FROM titleAkas;
