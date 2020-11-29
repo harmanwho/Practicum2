@@ -63,9 +63,9 @@ CREATE TABLE titleBasics (
     titleType VARCHAR(256),
     primaryTitle VARCHAR(256),
     originalTitle VARCHAR(256),
-    isAdult BOOLEAN,
-    startYear YEAR,
-    endYear YEAR,
+    isAdult SMALLINT,
+    startYear SMALLINT,
+    endYear SMALLINT,
     runtimeMinutes INT
 );
 
@@ -154,8 +154,8 @@ CREATE TABLE juncCrewRole (
 CREATE TABLE nameBasics (
 	nconst VARCHAR(256) PRIMARY KEY,
 	primaryName VARCHAR(256),
-    birthYear YEAR,
-    deathYear YEAR,
+    birthYear SMALLINT,
+    deathYear SMALLINT,
     age INT,
     numTitlesCount INT
 );
@@ -217,17 +217,68 @@ show tables;
 ```
 ## Load Data into the tables
 
-### titleBasics load
+### titleBasics, titleGenres, juncTitleGenre load
 ``` {r, connection="db"}
+#pre-script
 library("data.table")
+library(tidyr)
+
+#read the file into a data.table
 fread("/Users/harmansidhu/Documents/DBMS/Practicums/imdbData/title.basics.tsv", sep = "\t", header= TRUE, na.strings="\\N", nrows=50000)-> pre
+
+# Extract genres and corresponding tconst from file and split into individual rows
+genres <- pre[, list(tconst, genres)]
+genresDF <- as.data.frame(genres)
+#head(genresDF)
+
+#head(genresColDF)
+#
+
+#rename column name 'genres' to 'genre'
+genresDF <- separate_rows(genresDF, tconst, genres, convert = TRUE)
+renamedGenre <- genresDF %>% rename(genre = genres)
+print(renamedGenre)
+
+genreTableData <- distinct(subset(renamedGenre, select = -c(tconst)), genre)
+#print(genreTableData)
+
 #Remove the row  genres form the data.table
 pre[, genres:=NULL]
-head(pre)
-#dbWriteTable(db, value = pre, row.names = FALSE, name = "titleBasics", append = FALSE)
+preDF <- as.data.frame(pre)
+#head(pre)
+
+#Insert data into MySQL Table
+#dbWriteTable(db, value = preDF, row.names = FALSE, name = "titleBasics", append = TRUE)
 dbReadTable(db, "titleBasics")
+
+#Insert data into titleGenre and create corresponding PK
+#dbWriteTable(db, value = genreTableData, row.names = FALSE, name = "titleGenre", append = TRUE)
+genreWithID <- dbReadTable(db, "titleGenre")
+print(genreWithID)
 ```
-### nameBasics load
+
+### titleRatings load
+``` {r, connection="db"}
+library("data.table")
+fread("/Users/harmansidhu/Documents/DBMS/Practicums/imdbData/title.ratings.tsv", sep = "\t", header= TRUE, na.strings="\\N", nrows=50000) -> ratings
+ratingsDF <- as.data.frame(ratings)
+head(ratingsDF)
+dbWriteTable(db, value = ratingsDF, row.names = FALSE, name = "titleRatings", overwrite = TRUE)
+dbReadTable(db, "titleRatings")
+```
+
+
+### titleEpisodes load
+``` {r, connection="db"}
+library("data.table")
+fread("/Users/harmansidhu/Documents/DBMS/Practicums/imdbData/title.episode.tsv", sep = "\t", header= TRUE, na.strings="\\N", nrows=50000) -> episodes
+episodesDF <- as.data.frame(episodes)
+head(episodesDF)
+dbWriteTable(db, value = episodesDF, row.names = FALSE, name = "titleEpisodes", overwrite = TRUE)
+dbReadTable(db, "titleEpisodes")
+```
+
+### nameBasics, juncNameProfession, nameProfession load
 
 ```{r, connection="db"}
 
@@ -237,10 +288,10 @@ library(dplyr)
 library(stringr)
 
 # initial import
-nameBasics <- fread(file = '/Users/harmansidhu/Documents/DBMS/Practicums/imdbData/name.basics.tsv', sep = "\t", header= TRUE, na.strings="\\N", nrows=50000) 
+nameData <- fread(file = '/Users/harmansidhu/Documents/DBMS/Practicums/imdbData/name.basics.tsv', sep = "\t", header= TRUE, na.strings="\\N", nrows=50000) 
 
+nameBasics <- as.data.frame(nameData)
 #junction table create
-#TODO: need to rewrite this with data.table
 juncNameProfession <- data.frame(
                  nconst=character(50000), 
                  professionID=sample(1:60000, 50000, replace=FALSE))
@@ -248,7 +299,6 @@ str(juncNameProfession)
 juncNameProfession$nconst = nameBasics$nconst
 
 #nameProfession creation
-#TODO: need to rewrite this with data.table
 nameProfession <- data.frame(
                  professionID =character(50000), 
                  primaryProfession = character(50000))
