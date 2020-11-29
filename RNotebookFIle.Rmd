@@ -248,13 +248,20 @@ preDF <- as.data.frame(pre)
 #head(pre)
 
 #Insert data into MySQL Table
-#dbWriteTable(db, value = preDF, row.names = FALSE, name = "titleBasics", append = TRUE)
+dbWriteTable(db, value = preDF, row.names = FALSE, name = "titleBasics", append = TRUE)
 dbReadTable(db, "titleBasics")
 
 #Insert data into titleGenre and create corresponding PK
-#dbWriteTable(db, value = genreTableData, row.names = FALSE, name = "titleGenre", append = TRUE)
+dbWriteTable(db, value = genreTableData, row.names = FALSE, name = "titleGenre", append = TRUE)
 genreWithID <- dbReadTable(db, "titleGenre")
 print(genreWithID)
+
+#Merge dataframes to create the junction table data
+junctionGenre <- merge(renamedGenre, genreWithID, by="genre", all.x = FALSE)
+junctionGenre <- subset(junctionGenre, select = -c(genre))
+print(junctionGenre)
+dbWriteTable(db, value = junctionGenre, row.names = FALSE, name = "juncTitleGenre", append = TRUE)
+dbReadTable(db, "juncTitleGenre")
 ```
 
 ### titleRatings load
