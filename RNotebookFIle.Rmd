@@ -50,6 +50,10 @@ knitr::opts_chunk$set(connection = "db")
 
 ```
 
+
+
+### CREATE TABLE Commands
+
 ```{sql, connection="db"}
 --
 -- Table - titleBasics | File - title.basics.tsv
@@ -174,7 +178,7 @@ CREATE TABLE juncNameTitles (
 -- Table - nameProfession
 --
 CREATE TABLE nameProfession (
-	professionID INT PRIMARY KEY AUTO_INCREMENT,
+	  professionID INT PRIMARY KEY AUTO_INCREMENT,
     primaryProfession VARCHAR(256)
 );
 
@@ -211,7 +215,59 @@ CREATE TABLE titlePrincipals (
 ```{sql, connection="db"}
 show tables;
 ```
+## Load Data into the tables
 
+### titleBasics load
+``` {r, connection="db"}
+library("data.table")
+fread("/Users/harmansidhu/Documents/DBMS/Practicums/imdbData/title.basics.tsv", sep = "\t", header= TRUE, na.strings="\\N", nrows=50000)-> pre
+#Remove the row  genres form the data.table
+pre[, genres:=NULL]
+head(pre)
+#dbWriteTable(db, value = pre, row.names = FALSE, name = "titleBasics", append = FALSE)
+dbReadTable(db, "titleBasics")
+```
+### nameBasics load
 
-## CREATE TABLE Commands
+```{r, connection="db"}
+
+	
+library(tidyr)
+library(dplyr)
+library(stringr)
+
+# initial import
+nameBasics <- fread(file = '/Users/harmansidhu/Documents/DBMS/Practicums/imdbData/name.basics.tsv', sep = "\t", header= TRUE, na.strings="\\N", nrows=50000) 
+
+#junction table create
+#TODO: need to rewrite this with data.table
+juncNameProfession <- data.frame(
+                 nconst=character(50000), 
+                 professionID=sample(1:60000, 50000, replace=FALSE))
+str(juncNameProfession)
+juncNameProfession$nconst = nameBasics$nconst
+
+#nameProfession creation
+#TODO: need to rewrite this with data.table
+nameProfession <- data.frame(
+                 professionID =character(50000), 
+                 primaryProfession = character(50000))
+                
+nameProfession$professionID <- juncNameProfession$professionID
+nameProfession$primaryProfession <- nameBasics$primaryProfession
+nameProfession <- nameProfession %>% tidyr::separate(primaryProfession, into = c("primaryProfession", "primaryProf1", "primaryProf2"))
+
+nameBasics = subset(nameBasics, select = -c(primaryProfession))
+
+#TODO: numTitlesCount is to be left empty now and calculated later
+numTitlesCount <- stringr::str_count(nameBasics$knownForTitles, ",")
+numTitlesCount <- numTitlesCount + 1
+head(numTitlesCount)
+nameBasics$numTitlesCount <- numTitlesCount
+nameBasics = subset(nameBasics, select = -c(knownForTitles))
+head(nameBasics)
+#dbReadTable("nameBasics")
+dbWriteTable(db, value = nameBasics, row.names = FALSE, name = "nameBasics", append = TRUE)
+```
+
 
