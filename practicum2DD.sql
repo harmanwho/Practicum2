@@ -1,5 +1,5 @@
 show databases;
-USE practicum2;
+USE IMDBPrac;
 
 CREATE TABLE titleBasics (
     tconst VARCHAR(256) PRIMARY KEY,

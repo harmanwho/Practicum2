@@ -70,13 +70,13 @@ library(dplyr)
 library(stringr)
 
 # add file paths from your local
-fileTitleBasics <- "/Users/harmansidhu/Documents/DBMS/Practicums/imdbData/title.basics.tsv"
-fileNameBasics <- "/Users/harmansidhu/Documents/DBMS/Practicums/imdbData/name.basics.tsv"
-fileTitleRatings <- "/Users/harmansidhu/Documents/DBMS/Practicums/imdbData/title.ratings.tsv"
-fileTitleCrew <- "/Users/harmansidhu/Documents/DBMS/Practicums/imdbData/title.crew.tsv"
-fileTitleEpisode <- "/Users/harmansidhu/Documents/DBMS/Practicums/imdbData/title.episode.tsv"
-fileTitlePrincipals <- "/Users/harmansidhu/Documents/DBMS/Practicums/imdbData/title.principals.tsv"
-fileTitleAkas <- "/Users/harmansidhu/Documents/DBMS/Practicums/imdbData/title.akas.tsv"
+fileTitleBasics <- "yourPath/title.basics.tsv"
+fileNameBasics <- "yourPath/name.basics.tsv"
+fileTitleRatings <- "yourPath/title.ratings.tsv"
+fileTitleCrew <- "yourPath/title.crew.tsv"
+fileTitleEpisode <- "yourPath/title.episode.tsv"
+fileTitlePrincipals <- "yourPath/title.principals.tsv"
+fileTitleAkas <- "yourPath/title.akas.tsv"
 ```
 
 
@@ -402,17 +402,94 @@ Rubric for this section:
 - [x] (5 pts / 30 min) After loading the data, execute UPDATE statements for the two newly created columns in (2C). You may interpret what appearing in movies means and what you classify as movies -- just make it clear in your notebook.
 - [x] (10 pts / 90 min) Add triggers to the appropriate tables so that the newly created columns in (2C) are automatically updated when new data in inserted.
 
+```{r, connection="db"}
+
+# Query to update age in the table.
+ageQuery<-"UPDATE nameBasics
+SET age = CASE
+		WHEN deathYear IS NULL THEN YEAR(CURRENT_TIMESTAMP) - birthYear + 1
+        ELSE deathYear - birthYear + 1
+	END"
+
+dbExecute(db, ageQuery)
+
+dbReadTable(db, "nameBasics")
+
+```
+
+
+```{r, connection="db"}
+
+# Query to update number of titles from junction table in the 'nameBasics' table
+titlesQuery<-"UPDATE nameBasics AS t
+INNER JOIN (
+  SELECT s.nconst, COUNT(*) AS count
+  FROM juncNameTitles AS s
+  -- WHERE s.custom_condition IS (true)
+  GROUP BY s.nconst
+) AS aggregate ON aggregate.nconst = t.nconst
+SET t.numTitlesCount = aggregate.count;"
+
+dbExecute(db, titlesQuery)
+
+dbReadTable(db, "nameBasics")
+
+```
+
+
+```{sql, connection="db"}
+--
+-- TRIGGER for updating 'numTitlesCount'
+--
+
+
+
+```
+
 
 ### View for actors and their attributes
 
 Rubric for this section:
 - [ ] (8 pts / 60 min) Create a view that lists the name of each actor, their age, whether they are dead or not, and how many movies they are known for.
 
+```{r, connection="db"}
+actorViewQuery <- "CREATE VIEW actorAttView AS
+SELECT primaryName as Name, age as Age, (if(deathYear IS NULL, 'FALSE', 'TRUE')) as isDead, numTitlesCount as NumberOfMovies
+FROM nameBasics;"
+
+dbExecute(db, actorViewQuery)
+
+fetchActorViewQuery <- "SELECT * FROM actorattview;"
+
+dbGetQuery(db, fetchActorViewQuery)
+```
 
 ### Query for number of seasons for each TV series with a histogram plot
 
 Rubric for this section:
-- [ ] (9 pts / 90 min) Write a query that finds the number of seasons for each TV series. Using the results of the query create a histogram (frequency plot) with proper axis labels and title.
+- [x] (9 pts / 90 min) Write a query that finds the number of seasons for each TV series. Using the results of the query create a histogram (frequency plot) with proper axis labels and title.
+
+```{r, connection="db"}
+noOfSeasonsQuery <- "SELECT t.parentTconst as Id, b.primaryTitle as Title, MAX(t.seasonNumber) as NumberOfSeasons
+FROM titleEpisodes as t, titleBasics as b
+WHERE t.parentTconst = b.tconst AND b.titleType = 'tvSeries'
+GROUP BY t.parentTconst
+ORDER BY t.parentTconst;"
+
+noOfSeasonsResult <- dbGetQuery(db, noOfSeasonsQuery)
+noOfSeasonsResult <- na.omit(noOfSeasonsResult)
+print(noOfSeasonsResult)
+
+hist(noOfSeasonsResult$NumberOfSeasons, 
+     main="Histogram for Number of Seasons for TV Series", 
+     xlab="Seasons",
+     ylab="Frequency of seasons",
+     border="darkgray", 
+     col="aliceblue",
+     breaks=10)
+```
+
+
 
 ### Stored Procedure to add actor and delete actor from the database
 
@@ -424,7 +501,35 @@ Rubric for this section:
 ### Query to retrieve actors with two or more movies and above average rating
 
 Rubric for this section:
-- [ ] (10 pts / 45 min) Write a query to retrieve the names and ages of all actors who appeared in more than two movies (but not TV Movies) which an above average rating. Show the results of the query in your notebook. Do not hard code the average rating.
+- [x] (10 pts / 45 min) Write a query to retrieve the names and ages of all actors who appeared in more than two movies (but not TV Movies) which an above average rating. Show the results of the query in your notebook. Do not hard code the average rating.
+
+```{r, connection="db"}
+aboveAvgActorQuery <- "SELECT n.primaryName, n.age
+FROM (SELECT * 
+FROM nameBasics as n
+RIGHT JOIN (
+	SELECT j.nconst as id
+	FROM juncNameProfession as j, nameProfession as p
+	WHERE j.professionID = p.professionID AND p.primaryProfession = 'actor'
+    ) as p
+ON n.nconst = p.id) as n
+INNER JOIN (
+	SELECT j.nconst as id, COUNT(j.tconst) as numAboveAvgMovies
+	FROM juncNameTitles as j
+	INNER JOIN (
+		SELECT t.tconst as titleID, t.averageRating, b.titleType as type
+		FROM titleRatings as t
+		RIGHT JOIN titleBasics as b
+		ON t.tconst = b.tconst AND b.titleType = 'movie'
+		WHERE t.averageRating > ( SELECT avg(averageRating) FROM titleRatings )
+	) AS m
+	ON j.tconst = m.titleID
+	GROUP BY j.nconst) as i
+ON n.nconst = i.id AND i.numAboveAvgMovies > 2;"
+
+dbGetQuery(db, aboveAvgActorQuery)
+
+```
 
 ### Query to retrieve actor by name, query analysis and indexing
 Rubric for this section:
