@@ -79,8 +79,6 @@ fileTitlePrincipals <- "yourPath/title.principals.tsv"
 fileTitleAkas <- "yourPath/title.akas.tsv"
 ```
 
-
-
 ### CREATE TABLE Commands
 
 Rubric for this section:
@@ -425,7 +423,6 @@ titlesQuery<-"UPDATE nameBasics AS t
 INNER JOIN (
   SELECT s.nconst, COUNT(*) AS count
   FROM juncNameTitles AS s
-  -- WHERE s.custom_condition IS (true)
   GROUP BY s.nconst
 ) AS aggregate ON aggregate.nconst = t.nconst
 SET t.numTitlesCount = aggregate.count;"
@@ -439,10 +436,42 @@ dbReadTable(db, "nameBasics")
 
 ```{sql, connection="db"}
 --
+-- TRIGGER for updating 'age'
+--
+DELIMITER //
+CREATE TRIGGER before_nameBasics_age
+BEFORE INSERT ON nameBasics
+FOR EACH ROW
+BEGIN
+    IF NEW.deathYear IS NULL
+	  THEN SET NEW.age = YEAR(CURRENT_TIMESTAMP) - NEW.birthYear + 1;
+	  ELSE SET NEW.age = NEW.deathYear - NEW.birthYear + 1;
+    END IF;
+END //
+DELIMITER ;
+
+```
+
+
+Assumption: for any new Insert Queries - data is entered into `juncNameTitles` table and the trigger will update count in `nameBasics` table
+```{sql, connection="db"}
+--
 -- TRIGGER for updating 'numTitlesCount'
 --
-
-
+DELIMITER //
+CREATE TRIGGER after_newNameTitles
+AFTER INSERT ON juncNameTitles
+FOR EACH ROW
+BEGIN
+    UPDATE nameBasics AS t
+    INNER JOIN (
+      SELECT s.nconst, COUNT(*) AS count
+      FROM juncNameTitles AS s
+      GROUP BY s.nconst
+    ) AS aggregate ON aggregate.nconst = t.nconst
+    SET t.numTitlesCount = aggregate.count;
+END //
+DELIMITER ;
 
 ```
 
@@ -450,7 +479,7 @@ dbReadTable(db, "nameBasics")
 ### View for actors and their attributes
 
 Rubric for this section:
-- [ ] (8 pts / 60 min) Create a view that lists the name of each actor, their age, whether they are dead or not, and how many movies they are known for.
+- [x] (8 pts / 60 min) Create a view that lists the name of each actor, their age, whether they are dead or not, and how many movies they are known for.
 
 ```{r, connection="db"}
 actorViewQuery <- "CREATE VIEW actorAttView AS
