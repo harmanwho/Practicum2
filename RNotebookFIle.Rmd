@@ -562,7 +562,75 @@ dbGetQuery(db, aboveAvgActorQuery)
 
 ### Query to retrieve actor by name, query analysis and indexing
 Rubric for this section:
-- [ ] (5 pts / 90 min) Write a query that finds an actor by name (pick a name). Measure the execution time of the query. Then create an index that would improve the performance of the query and then run and measure it again. Show the difference in a bar chart and comment on why that's the case.
+- [x] (5 pts / 90 min) Write a query that finds an actor by name (pick a name). Measure the execution time of the query. Then create an index that would improve the performance of the query and then run and measure it again. Show the difference in a bar chart and comment on why that's the case.
+
+```{r, connection="db"}
+resetProfiling <- "SET profiling = 0;"
+
+removeProfilingHistory <- "SET profiling_history_size = 0;"
+
+setProfilingHistory <- "SET profiling_history_size = 100;"
+
+dbExecute(db, resetProfiling)
+dbExecute(db, removeProfilingHistory)
+dbExecute(db, setProfilingHistory)
+
+setProfiling <- "SET profiling=1"
+
+findActorQuery <- "SELECT *
+FROM (SELECT * 
+FROM nameBasics as n
+RIGHT JOIN (
+	SELECT j.nconst as id
+	FROM juncNameProfession as j, nameProfession as p
+	WHERE j.professionID = p.professionID AND p.primaryProfession = 'actor'
+    ) as p
+ON n.nconst = p.id) as n
+WHERE n.primaryName = 'John Belushi';"
+
+createIndexQuery <- "CREATE INDEX actorIdx
+ON nameBasics(primaryName);"
+
+dropIndexQuery <- "DROP INDEX actorIdx ON nameBasics;"
+
+showProfilesQuery <- "SHOW profiles;"
+
+# set profiling
+dbExecute(db, setProfiling)
+
+# get actor by name - without indexing
+dbGetQuery(db, findActorQuery)
+
+# create index
+dbExecute(db, createIndexQuery)
+
+# get actor by name - with indexing
+dbGetQuery(db, findActorQuery)
+
+actorQueryString <- "SELECT *\nFROM (SELECT * \nFROM nameBasics as n\nRIGHT JOIN (\n\tSELECT j.nconst as id\n\tFROM juncNameProfession as j, nameProfession as p\n\tWHERE j.professionID = p.professionID AND p.primaryProfession = 'actor'\n ) as p\nON n.nconst = p.id) as n\nWHERE n.primaryName = 'John Belushi'"
+
+# get performance results
+performanceResults <- dbGetQuery(db, showProfilesQuery)
+performanceResults <- performanceResults[c(3, 9),]
+print(performanceResults)
+
+# drop index to execute the r chunk again
+dbExecute(db, dropIndexQuery)
+
+# bar plot for performance before and after indexing
+barplot(height=performanceResults$Duration,
+        main="Query Performance with indexing",
+        xlab="Queries",
+        ylab="Execution time(sec)", 
+        names.arg=c("W/O Index","With Index"),
+        border="darkgray", 
+        col="black",
+        beside=TRUE,
+        ylim=range(pretty(c(0, performanceResults$Duration))),
+        density=c(10,20,30,40,50))
+```
+As seen in the bar plot above, it is clear that indexing improved the query by significant a lot. The reason being the query helps find the actor by name using Binary search instead of linear.
+
 
 ### Add indexes to several tables, performance measurements and line graph for one, two, three index
 Rubric for this section:
