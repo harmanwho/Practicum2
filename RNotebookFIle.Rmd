@@ -538,9 +538,10 @@ library(stringr)
 
 ## directly profess professions
 processProfessions <- function(nconst, primaryName, birthYear, deathYear, primaryProfession, knownForTitles) {
-    splitProfessions <- str_split(primaryProfession, ",")
-    print(splitProfessions)
-    professionsToEnter <- data.frame("primaryProfession"=splitProfessions) 
+    professionsToEnter <- data.frame(matrix(ncol = 1, nrow = 5))
+    x <- c("primaryProfession")
+    colnames(professionsToEnter) <- x
+    professionsToEnter$primaryProfession <- c(primaryProfession)
     print(professionsToEnter)
     return(professionsToEnter)
     }
@@ -559,7 +560,6 @@ processNameBasics <- function(nconst, primaryName, birthYear, deathYear, primary
     return(nameBasicsDF)
 }
 
-professionsData <- processProfessions(nconst, primaryName, birthYear, deathYear, primaryProfession, knownForTitles)
 addActor <- function(nconst, primaryName, birthYear, deathYear, primaryProfession, knownForTitles) { 
     ## process data into correct data frames
     nameBasicsData <- processNameBasics(nconst, primaryName, birthYear, deathYear, primaryProfession)
@@ -580,9 +580,21 @@ addActor <- function(nconst, primaryName, birthYear, deathYear, primaryProfessio
     dbReadTable(db, "nameProfession")
   }
 
-#addActor("n52320301", "Lady Gaga", 1980, 2020, "actor,singer,dancer", "t500005,t60500")
-```
+addActor("n52320501", "Lady Gaga", 1980, 2020, "actor,singer,dancer", "t500005,t60500")
 
+removeActor <- function(nconstVar) { 
+  queryStart <- "DELETE FROM nameBasics AS n WHERE n.nconst ="
+  nconstInput <- nconstVar
+  paste1 <- paste(queryStart, nconstVar, sep = " ")
+  querySecondHalf <- "LIMIT 1; "
+  paste2 <- paste(paste1, querySecondHalf, sep =" ")
+  str(paste2)
+  dbExecute(db, paste2)
+  dbReadTable(db, "nameBasics")
+}
+
+removeActor("'n52320501'")
+```
 
 ### Query to retrieve actors with two or more movies and above average rating
 
