@@ -122,8 +122,8 @@ CREATE TABLE titleGenre (
 CREATE TABLE juncTitleGenre (
 	tconst VARCHAR(256),
     genreID INT,
-    CONSTRAINT titleGenreFK FOREIGN KEY (tconst) REFERENCES titleBasics (tconst),
-    CONSTRAINT genreFK FOREIGN KEY (genreID) REFERENCES titleGenre (genreID)
+    CONSTRAINT titleGenreFK FOREIGN KEY (tconst) REFERENCES titleBasics (tconst) ON DELETE CASCADE,
+    CONSTRAINT genreFK FOREIGN KEY (genreID) REFERENCES titleGenre (genreID) ON DELETE CASCADE
 );
 
 ```
@@ -136,7 +136,7 @@ CREATE TABLE titleRatings (
 	tconst VARCHAR(256),
     averageRating INT,
     numVotes INT,
-    CONSTRAINT titleRatingFK FOREIGN KEY (tconst) REFERENCES titleBasics (tconst)
+    CONSTRAINT titleRatingFK FOREIGN KEY (tconst) REFERENCES titleBasics (tconst) ON DELETE CASCADE
 );
 
 ```
@@ -150,7 +150,7 @@ CREATE TABLE titleEpisodes (
     parentTconst VARCHAR(256),
     seasonNumber INT,
     episodeNumber INT,
-    CONSTRAINT titleEpisodeFK FOREIGN KEY (parentTconst) REFERENCES titleBasics (tconst)
+    CONSTRAINT titleEpisodeFK FOREIGN KEY (parentTconst) REFERENCES titleBasics (tconst) ON DELETE CASCADE
 );
 
 ```
@@ -173,8 +173,8 @@ CREATE TABLE juncCrewRole (
 	tconst VARCHAR(256),
     nconst VARCHAR(256),
     roleID INT,
-    CONSTRAINT titleCrewFK FOREIGN KEY (tconst) REFERENCES titleBasics (tconst),
-    CONSTRAINT roleCrewFK FOREIGN KEY (roleID) REFERENCES crewRoles (roleID)
+    CONSTRAINT titleCrewFK FOREIGN KEY (tconst) REFERENCES titleBasics (tconst) ON DELETE CASCADE,
+    CONSTRAINT roleCrewFK FOREIGN KEY (roleID) REFERENCES crewRoles (roleID) ON DELETE CASCADE
 );
 ```
 
@@ -201,8 +201,8 @@ CREATE TABLE nameBasics (
 CREATE TABLE juncNameTitles (
 	nconst VARCHAR(256),
     tconst VARCHAR(256),
-    CONSTRAINT nameFK FOREIGN KEY (nconst) REFERENCES nameBasics (nconst),
-    CONSTRAINT titleFK FOREIGN KEY (tconst) REFERENCES titleBasics (tconst)
+    CONSTRAINT nameFK FOREIGN KEY (nconst) REFERENCES nameBasics (nconst) ON DELETE CASCADE,
+    CONSTRAINT titleFK FOREIGN KEY (tconst) REFERENCES titleBasics (tconst) ON DELETE CASCADE
 );
 ```
 
@@ -224,8 +224,8 @@ CREATE TABLE nameProfession (
 CREATE TABLE juncNameProfession (
 	nconst VARCHAR(256),
     professionID INT,
-    CONSTRAINT nameProfessionFK FOREIGN KEY (nconst) REFERENCES nameBasics (nconst),
-    CONSTRAINT professionFK FOREIGN KEY (professionID) REFERENCES nameProfession (professionID)
+    CONSTRAINT nameProfessionFK FOREIGN KEY (nconst) REFERENCES nameBasics (nconst) ON DELETE CASCADE,
+    CONSTRAINT professionFK FOREIGN KEY (professionID) REFERENCES nameProfession (professionID) ON DELETE CASCADE
 );
 ```
 
@@ -240,8 +240,8 @@ CREATE TABLE titlePrincipals (
     category VARCHAR(256),
     job VARCHAR(256),
     characters VARCHAR(256),
-    CONSTRAINT principalTitleFK FOREIGN KEY (tconst) REFERENCES titleBasics (tconst),
-    CONSTRAINT principalNameFK FOREIGN KEY (nconst) REFERENCES nameBasics (nconst)
+    CONSTRAINT principalTitleFK FOREIGN KEY (tconst) REFERENCES titleBasics (tconst) ON DELETE CASCADE,
+    CONSTRAINT principalNameFK FOREIGN KEY (nconst) REFERENCES nameBasics (nconst) ON DELETE CASCADE
 );
 ```
 
@@ -528,6 +528,60 @@ hist(noOfSeasonsResult$NumberOfSeasons,
 Rubric for this section:
 - [ ] (10 pts / 120 min) Build a function in your code or a stored procedure in the database (approach is your choice) called addActor() that adds a new actor to the database: this requires updating several tables, so the insertions must occur within a transaction in order to function properly in a concurrent environment. Test your function by inserting a new actor -- you may make up a name and associated information. Show evidence  in your notebook that the actor was properly inserted.
 - [ ] (5 pts / 60 min) Build a function in your code or a stored procedure in the database (approach is your choice) called deleteActor() that removes an actor from the database: this requires updating several tables, so the deletions must occur within a transaction in order to function properly in a concurrent environment. Test your function by deleting a new actor inserted in (9) -- show evidence that the removal was successful.
+
+```{r, connection="db"}
+
+library(data.table)
+library(tidyr)
+library(dplyr)
+library(stringr)
+
+## directly profess professions
+processProfessions <- function(nconst, primaryName, birthYear, deathYear, primaryProfession, knownForTitles) {
+    splitProfessions <- str_split(primaryProfession, ",")
+    print(splitProfessions)
+    professionsToEnter <- data.frame("primaryProfession"=splitProfessions) 
+    print(professionsToEnter)
+    return(professionsToEnter)
+    }
+
+## directly process titles 
+processTitles <- function(nconst, primaryName, birthYear, deathYear, primaryProfession, knownForTitles) {
+    splitTitles <- str_split(knownForTitles, ",")
+    knownForTitlesToEnter <- data.frame("nconst" = nconst, "knownForTitles" = c(splitTitles))
+    return(knownForTitlesToEnter)
+    }
+
+## process main table
+processNameBasics <- function(nconst, primaryName, birthYear, deathYear, primaryProfession) {
+    nameBasicsDF <- data.frame("nconst" = nconst, "primaryName" = primaryName, "birthYear" = birthYear, "deathYear"
+     = deathYear)
+    return(nameBasicsDF)
+}
+
+professionsData <- processProfessions(nconst, primaryName, birthYear, deathYear, primaryProfession, knownForTitles)
+addActor <- function(nconst, primaryName, birthYear, deathYear, primaryProfession, knownForTitles) { 
+    ## process data into correct data frames
+    nameBasicsData <- processNameBasics(nconst, primaryName, birthYear, deathYear, primaryProfession)
+    knownForTitlesData <- processTitles(nconst, primaryName, birthYear, deathYear, primaryProfession, knownForTitles)
+    professionsData <- processProfessions(nconst, primaryName, birthYear, deathYear, primaryProfession, knownForTitles)
+    
+    ## write to DB using transaction
+   
+    dbWriteTable(db, value = nameBasicsData, row.names = FALSE, name = "nameBasics", append=TRUE)
+    dbWriteTable(db, value = knownForTitlesData, row.names = FALSE, name = "juncNameTitles", overwrite=TRUE)
+    dbWriteTable(db, value = professionsData, row.names = FALSE, name = "nameProfession", append=TRUE)
+
+  
+    
+    ## show results 
+    dbReadTable(db, "nameBasics")
+    dbReadTable(db, "juncNameTitles")
+    dbReadTable(db, "nameProfession")
+  }
+
+#addActor("n52320301", "Lady Gaga", 1980, 2020, "actor,singer,dancer", "t500005,t60500")
+```
 
 
 ### Query to retrieve actors with two or more movies and above average rating
