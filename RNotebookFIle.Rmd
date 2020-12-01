@@ -64,10 +64,13 @@ knitr::opts_chunk$set(connection = "db")
 #install.packages("tidyr")
 #install.packages("dplyr")
 #install.packages("stringr")
+#install.packages("ggplot2")
 library(data.table)
 library(tidyr)
 library(dplyr)
 library(stringr)
+library(ggplot2)
+library(plotly)
 
 # add file paths from your local
 fileTitleBasics <- "yourPath/title.basics.tsv"
@@ -571,11 +574,12 @@ removeProfilingHistory <- "SET profiling_history_size = 0;"
 
 setProfilingHistory <- "SET profiling_history_size = 100;"
 
+# clear profiling
 dbExecute(db, resetProfiling)
 dbExecute(db, removeProfilingHistory)
 dbExecute(db, setProfilingHistory)
 
-setProfiling <- "SET profiling=1"
+setProfiling <- "SET profiling=1;"
 
 findActorQuery <- "SELECT *
 FROM (SELECT * 
@@ -607,8 +611,6 @@ dbExecute(db, createIndexQuery)
 # get actor by name - with indexing
 dbGetQuery(db, findActorQuery)
 
-actorQueryString <- "SELECT *\nFROM (SELECT * \nFROM nameBasics as n\nRIGHT JOIN (\n\tSELECT j.nconst as id\n\tFROM juncNameProfession as j, nameProfession as p\n\tWHERE j.professionID = p.professionID AND p.primaryProfession = 'actor'\n ) as p\nON n.nconst = p.id) as n\nWHERE n.primaryName = 'John Belushi'"
-
 # get performance results
 performanceResults <- dbGetQuery(db, showProfilesQuery)
 performanceResults <- performanceResults[c(3, 9),]
@@ -635,5 +637,95 @@ As seen in the bar plot above, it is clear that indexing improved the query by s
 ### Add indexes to several tables, performance measurements and line graph for one, two, three index
 Rubric for this section:
 - [ ] (5 pts / 90 min) Add several indexes to a table of your choice (one containing lots of rows) and then insert additional rows into the table. Provide measurements of insert performance with no additional index, one, two, three, etc. Plot the performance change in a line graph and comment on the difference.
+
+Insert query performance evaluation is performed on the table `nameBasics`
+```{r, connection="db"}
+# clear profiling
+dbExecute(db, resetProfiling)
+dbExecute(db, removeProfilingHistory)
+dbExecute(db, setProfilingHistory)
+
+# set profiling
+dbExecute(db, setProfiling)
+
+# queries to insert data
+indexInsertQuery1 <- "INSERT INTO nameBasics VALUES('nm1100032', 'John Doe', 1980, 2020, 40, 3);"
+indexInsertQuery2 <- "INSERT INTO nameBasics VALUES('nm1100033', 'John Doe', 1980, 2020, 40, 3);"
+indexInsertQuery3 <- "INSERT INTO nameBasics VALUES('nm1100034', 'John Doe', 1980, 2020, 40, 3);"
+indexInsertQuery4 <- "INSERT INTO nameBasics VALUES('nm1100035', 'John Doe', 1980, 2020, 40, 3);"
+indexInsertQuery5 <- "INSERT INTO nameBasics VALUES('nm1100036', 'John Doe', 1980, 2020, 40, 3);"
+
+# for final push
+indexInsertQuery1 <- "INSERT INTO nameBasics VALUES('nm2100002', 'John Doe', 1980, 2020, 40, 3);"
+indexInsertQuery2 <- "INSERT INTO nameBasics VALUES('nm2100003', 'John Doe', 1980, 2020, 40, 3);"
+indexInsertQuery3 <- "INSERT INTO nameBasics VALUES('nm2100004', 'John Doe', 1980, 2020, 40, 3);"
+indexInsertQuery4 <- "INSERT INTO nameBasics VALUES('nm2100005', 'John Doe', 1980, 2020, 40, 3);"
+indexInsertQuery4 <- "INSERT INTO nameBasics VALUES('nm2100006', 'John Doe', 1980, 2020, 40, 3);"
+
+# create first index and insert
+nameIndexQuery <- "CREATE INDEX nameIdx
+ON nameBasics(primaryName);"
+dbExecute(db, indexInsertQuery1)
+dbExecute(db, nameIndexQuery)
+
+# create second index and insert
+idIndexQuery <- "CREATE INDEX nconstIdx
+ON nameBasics(nconst);"
+dbExecute(db, indexInsertQuery2)
+dbExecute(db, idIndexQuery)
+
+# create third index and insert
+birthIndexQuery <- "CREATE INDEX birthIdx
+ON nameBasics(birthYear);"
+dbExecute(db, indexInsertQuery3)
+dbExecute(db, birthIndexQuery)
+
+# create fourth index and insert
+ageIndexQuery <- "CREATE INDEX ageIdx
+ON nameBasics(age);"
+dbExecute(db, indexInsertQuery4)
+dbExecute(db, ageIndexQuery)
+dbExecute(db, indexInsertQuery5)
+
+# get all the performance metrics
+multiIndexPerformance <- dbGetQuery(db, showProfilesQuery)
+multiIndexPerformance <- mutliIndexPerformance[c(3, 9, 15, 21, 27),]
+print(multiIndexPerformance)
+multiIndexPerformance[c(1),]$Query <- "0 Index"
+multiIndexPerformance[c(2),]$Query <- "1 Index"
+multiIndexPerformance[c(3),]$Query <- "2 Index"
+multiIndexPerformance[c(4),]$Query <- "3 Index"
+multiIndexPerformance[c(5),]$Query <- "4 Index"
+
+multiIndexPerformance[c(1),]$Duration <- multiIndexPerformance[c(1),]$Duration * 10000
+multiIndexPerformance[c(2),]$Duration <- multiIndexPerformance[c(2),]$Duration * 10000
+multiIndexPerformance[c(3),]$Duration <- multiIndexPerformance[c(3),]$Duration * 10000
+multiIndexPerformance[c(4),]$Duration <- multiIndexPerformance[c(4),]$Duration * 10000
+multiIndexPerformance[c(5),]$Duration <- multiIndexPerformance[c(5),]$Duration * 10000
+print(multiIndexPerformance)
+
+p <- ggplot(data=multiIndexPerformance, aes(x=Query_ID, y=Duration)) +
+    geom_line() +
+    geom_point() +
+    xlab("Queries") + ylab("Execution Time(seconds * 1000)") +
+    ggtitle("Insert performance vs increasing indexes") 
+
+fig <- ggplotly(p)
+fig
+
+# delete all indexes
+dropNameIndex <- "DROP INDEX nameIdx on nameBasics;"
+dropIdIndex <- "DROP INDEX nconstIdx on nameBasics;"
+dropBirthIndex <- "DROP INDEX birthIdx on nameBasics;"
+dropAgeIndex <- "DROP INDEX ageIdx on nameBasics;"
+
+dbExecute(db, dropNameIndex)
+dbExecute(db, dropIdIndex)
+dbExecute(db, dropBirthIndex)
+dbExecute(db, dropAgeIndex)
+```
+`INSERT` statement cannot directly benefit from the indexes as it has not where clause, hence the execution becomes slower with addition of more indexes to the table.
+Given the number of rows in the table - it can be seen in the line graph that the execution time increased as compared to the initial execution time. This table has lesser number of rows which shows graph execution time going down after query two because the initial indexes have the most impact and this impact increases if the number of rows is very large.
+
 
 
